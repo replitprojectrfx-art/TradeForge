@@ -157,10 +157,8 @@ export function Sidebar() {
 >
       >
         {/* هدر Sidebar */}
-        <div
-  className="flex items-center justify-between px-4 border-b shrink-0"
-  style={{ minHeight: "56px" }}
->
+        <div className="flex items-center justify-between px-4 border-b shrink-0"
+  style={{ minHeight: "56px" }}>
           <div className="flex items-center gap-2 font-semibold text-lg tracking-tight">
             <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
               <ActivitySquare className="w-4 h-4 text-primary-foreground" />
