@@ -144,15 +144,23 @@ export function Sidebar() {
 
       {/* ── Sidebar (دسکتاپ: ثابت سمت راست — موبایل: Drawer) */}
       <aside
-        className={cn(
-          "fixed top-0 right-0 z-50 h-screen w-64 bg-sidebar border-l flex flex-col",
-          "transition-transform duration-300 ease-in-out",
-          "md:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "translate-x-full"
-        )}
+  className={cn(
+    "fixed right-0 z-50 w-64 bg-sidebar border-l flex flex-col",
+    "transition-transform duration-300 ease-in-out",
+    "md:translate-x-0",
+    sidebarOpen ? "translate-x-0" : "translate-x-full"
+  )}
+  style={{
+    top: "env(safe-area-inset-top)",
+    height: "calc(100dvh - env(safe-area-inset-top))",
+  }}
+>
       >
         {/* هدر Sidebar */}
-        <div className="h-14 flex items-center justify-between px-4 border-b shrink-0">
+        <div
+  className="flex items-center justify-between px-4 border-b shrink-0"
+  style={{ minHeight: "56px" }}
+>
           <div className="flex items-center gap-2 font-semibold text-lg tracking-tight">
             <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
               <ActivitySquare className="w-4 h-4 text-primary-foreground" />
