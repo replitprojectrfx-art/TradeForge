@@ -155,7 +155,6 @@ export function Sidebar() {
     height: "calc(100dvh - env(safe-area-inset-top))",
   }}
 >
-      >
         {/* هدر Sidebar */}
         <div className="flex items-center justify-between px-4 border-b shrink-0"
   style={{ minHeight: "56px" }}>
