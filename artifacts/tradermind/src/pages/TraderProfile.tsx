@@ -46,6 +46,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { logger } from '@/lib/logger';
 
 import {
   UserCircle2, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Info, XCircle,
@@ -1007,7 +1008,7 @@ export default function TraderProfile() {
         await reloadCorrections();
         await reloadSnapshots();
       } catch (err) {
-        console.error(err);
+        logger.error('خطا در بارگذاری داده‌ها', err);
         toast.error('خطا در بارگذاری داده‌ها از پایگاه داده');
       } finally {
         setIsLoadingDb(false);

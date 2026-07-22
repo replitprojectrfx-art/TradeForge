@@ -109,6 +109,14 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   root: path.resolve(import.meta.dirname),
+  esbuild: {
+    // Always strip debugger statements; in production also remove stray console.log/debug/info calls.
+    // console.warn and console.error are preserved (used by logger and ErrorBoundary for real errors).
+    drop: ['debugger'],
+    ...(process.env.NODE_ENV === 'production'
+      ? { pure: ['console.log', 'console.debug', 'console.info'] }
+      : {}),
+  },
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),
     emptyOutDir: true,

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { backupService, BackupMetadata, ValidationResult, MergeStats } from "../services/backupService";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -15,6 +15,8 @@ import {
   DialogFooter, DialogDescription,
 } from "../components/ui/dialog";
 import { toast } from "sonner";
+import { appStorage } from "../services/storageService";
+import { HardDrive } from "lucide-react";
 
 // ─────────────────────────────────────────────
 // ثوابت و انواع
@@ -70,6 +72,27 @@ export default function BackupRestore() {
   // ── History
   const [history, setHistory] = useState<HistoryItem[]>(() => backupService.getHistory());
   const [showHistory, setShowHistory] = useState(false);
+
+  // ── Storage monitoring
+  const [storageUsed, setStorageUsed] = useState<number | null>(null);
+  const [storageQuota, setStorageQuota] = useState<number | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+          const est = await navigator.storage.estimate();
+          setStorageUsed(est.usage ?? null);
+          setStorageQuota(est.quota ?? null);
+        } else {
+          const used = await appStorage.estimateSize();
+          setStorageUsed(used);
+        }
+      } catch {
+        // storage API not available — skip
+      }
+    })();
+  }, []);
 
   // ── Reset All Data
   const [showResetDialog, setShowResetDialog] = useState(false);
@@ -242,6 +265,43 @@ export default function BackupRestore() {
           اطلاعات شما کاملاً در مرورگر ذخیره می‌شود. می‌توانید از آن‌ها نسخه پشتیبان تهیه کنید یا به دستگاه دیگری منتقل کنید.
         </p>
       </div>
+
+      {/* ──── مانیتورینگ فضای ذخیره‌سازی ──── */}
+      {storageUsed !== null && (
+        <Card className={storageQuota && storageUsed / storageQuota > 0.8 ? 'border-orange-500/40' : ''}>
+          <CardContent className="pt-5 pb-4">
+            <div className="flex items-center gap-3">
+              <HardDrive className={`w-5 h-5 shrink-0 ${storageQuota && storageUsed / storageQuota > 0.8 ? 'text-orange-400' : 'text-muted-foreground'}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-medium">فضای ذخیره‌سازی IndexedDB</span>
+                  <span className="text-xs text-muted-foreground">
+                    {formatSize(storageUsed)}
+                    {storageQuota ? ` از ${formatSize(storageQuota)}` : ''}
+                  </span>
+                </div>
+                {storageQuota && (
+                  <div className="h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        storageUsed / storageQuota > 0.9 ? 'bg-red-500' :
+                        storageUsed / storageQuota > 0.8 ? 'bg-orange-400' : 'bg-primary'
+                      }`}
+                      style={{ width: `${Math.min(100, (storageUsed / storageQuota) * 100).toFixed(1)}%` }}
+                    />
+                  </div>
+                )}
+                {storageQuota && storageUsed / storageQuota > 0.8 && (
+                  <p className="text-xs text-orange-400 mt-1.5 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    فضای ذخیره‌سازی در حال پر شدن است — پیش از رسیدن به محدودیت، پشتیبان تهیه کنید.
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ──── ایجاد نسخه پشتیبان ──── */}
       <Card>

@@ -60,41 +60,32 @@ export const strategyService = {
   },
 
   async duplicatePhase(phaseId: string): Promise<Phase> {
-    const phase = await db.phases.get(phaseId);
-    if (!phase) throw new Error('Phase not found');
-    const existingPhases = await db.phases.where('strategyId').equals(phase.strategyId).toArray();
-    const newPhase = await this.createPhase({
-      strategyId: phase.strategyId,
-      name: phase.name + ' (Copy)',
-      description: phase.description,
-      order: existingPhases.length,
-    });
-    const steps = await db.steps.where('phaseId').equals(phaseId).sortBy('order');
-    for (const step of steps) {
-      const newStep = await this.createStep({
-        phaseId: newPhase.id,
-        name: step.name,
-        description: step.description,
-        type: step.type,
-        required: step.required,
-        order: step.order,
-        options: step.options,
-        hint: step.hint,
-      });
-      const rules = await db.rules.where('stepId').equals(step.id).sortBy('order');
-      for (const rule of rules) {
-        await this.createRule({
-          stepId: newStep.id,
-          title: rule.title,
-          description: rule.description,
-          type: rule.type,
-          required: rule.required,
-          order: rule.order,
-          options: rule.options,
-        });
+    return db.transaction('rw', db.phases, db.steps, db.rules, async () => {
+      const phase = await db.phases.get(phaseId);
+      if (!phase) throw new Error('Phase not found');
+      const existingPhases = await db.phases.where('strategyId').equals(phase.strategyId).toArray();
+      const newPhase: Phase = {
+        ...phase,
+        id: crypto.randomUUID(),
+        name: phase.name + ' (Copy)',
+        order: existingPhases.length,
+      };
+      await db.phases.add(newPhase);
+      const steps = await db.steps.where('phaseId').equals(phaseId).sortBy('order');
+      for (const step of steps) {
+        const newStep: Step = {
+          ...step,
+          id: crypto.randomUUID(),
+          phaseId: newPhase.id,
+        };
+        await db.steps.add(newStep);
+        const rules = await db.rules.where('stepId').equals(step.id).sortBy('order');
+        for (const rule of rules) {
+          await db.rules.add({ ...rule, id: crypto.randomUUID(), stepId: newStep.id });
+        }
       }
-    }
-    return newPhase;
+      return newPhase;
+    });
   },
 
   async getStepsByPhaseId(phaseId: string) {
@@ -121,32 +112,23 @@ export const strategyService = {
   },
 
   async duplicateStep(stepId: string): Promise<Step> {
-    const step = await db.steps.get(stepId);
-    if (!step) throw new Error('Step not found');
-    const existingSteps = await db.steps.where('phaseId').equals(step.phaseId).toArray();
-    const newStep = await this.createStep({
-      phaseId: step.phaseId,
-      name: step.name + ' (Copy)',
-      description: step.description,
-      type: step.type,
-      required: step.required,
-      order: existingSteps.length,
-      options: step.options,
-      hint: step.hint,
+    return db.transaction('rw', db.steps, db.rules, async () => {
+      const step = await db.steps.get(stepId);
+      if (!step) throw new Error('Step not found');
+      const existingSteps = await db.steps.where('phaseId').equals(step.phaseId).toArray();
+      const newStep: Step = {
+        ...step,
+        id: crypto.randomUUID(),
+        name: step.name + ' (Copy)',
+        order: existingSteps.length,
+      };
+      await db.steps.add(newStep);
+      const rules = await db.rules.where('stepId').equals(stepId).sortBy('order');
+      for (const rule of rules) {
+        await db.rules.add({ ...rule, id: crypto.randomUUID(), stepId: newStep.id });
+      }
+      return newStep;
     });
-    const rules = await db.rules.where('stepId').equals(stepId).sortBy('order');
-    for (const rule of rules) {
-      await this.createRule({
-        stepId: newStep.id,
-        title: rule.title,
-        description: rule.description,
-        type: rule.type,
-        required: rule.required,
-        order: rule.order,
-        options: rule.options,
-      });
-    }
-    return newStep;
   },
 
   async reorderPhases(phases: Phase[]) {

@@ -132,11 +132,17 @@ export default function AdvancedAnalytics() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [trades, strats] = await Promise.all([
-        db.trades.toArray(),
-        db.strategies.toArray(),
-      ]);
-      if (!cancelled) { setAllTrades(trades); setStrategies(strats); setLoading(false); }
+      try {
+        const [trades, strats] = await Promise.all([
+          db.trades.toArray(),
+          db.strategies.toArray(),
+        ]);
+        if (!cancelled) { setAllTrades(trades); setStrategies(strats); }
+      } catch {
+        // DB read error — show empty state instead of infinite loading
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, []);

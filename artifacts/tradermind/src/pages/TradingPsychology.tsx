@@ -154,9 +154,15 @@ function MentalPerformanceTab() {
 
   useEffect(() => {
     (async () => {
-      const [trades, journals] = await Promise.all([db.trades.toArray(), db.dailyJournals.toArray()]);
-      setData(analyzeMentalPerformance(trades, journals as DailyJournal[]));
-    })().finally(() => setLoading(false));
+      try {
+        const [trades, journals] = await Promise.all([db.trades.toArray(), db.dailyJournals.toArray()]);
+        setData(analyzeMentalPerformance(trades, journals as DailyJournal[]));
+      } catch {
+        // DB error — component will render empty state gracefully
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   if (loading) return <LoadingState message="در حال تحلیل حالت ذهنی..." />;
@@ -280,9 +286,15 @@ function RecurringMistakesTab() {
 
   useEffect(() => {
     (async () => {
-      const trades = await db.trades.toArray();
-      setTrends(analyzeRecurringMistakeTrends(trades));
-    })().finally(() => setLoading(false));
+      try {
+        const trades = await db.trades.toArray();
+        setTrends(analyzeRecurringMistakeTrends(trades));
+      } catch {
+        // DB error — component will render empty state gracefully
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   if (loading) return <LoadingState message="در حال تحلیل اشتباهات..." />;
@@ -418,12 +430,18 @@ function TradingHabitsTab() {
 
   useEffect(() => {
     (async () => {
-      const trades = await db.trades.toArray();
-      setByDay(getByDay(trades));
-      setByHour(getByHour(trades));
-      setBySession(getBySession(trades));
-      setOvertrading(getOvertradingAnalysis(trades, 4));
-    })().finally(() => setLoading(false));
+      try {
+        const trades = await db.trades.toArray();
+        setByDay(getByDay(trades));
+        setByHour(getByHour(trades));
+        setBySession(getBySession(trades));
+        setOvertrading(getOvertradingAnalysis(trades, 4));
+      } catch {
+        // DB error — component will render empty state gracefully
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   if (loading) return <LoadingState message="در حال بارگذاری عادات..." />;
@@ -725,9 +743,15 @@ function DisciplineScoreTab() {
 
   useEffect(() => {
     (async () => {
-      const trades = await db.trades.toArray();
-      setResult(computeDisciplineScore(trades));
-    })().finally(() => setLoading(false));
+      try {
+        const trades = await db.trades.toArray();
+        setResult(computeDisciplineScore(trades));
+      } catch {
+        // DB error — component will render empty state gracefully
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   if (loading) return <LoadingState message="در حال محاسبه امتیاز انضباط..." />;

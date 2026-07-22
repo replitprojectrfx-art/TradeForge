@@ -17,7 +17,10 @@ export interface HashedCredential {
   iterations: number;
 }
 
-const PBKDF2_ITERATIONS = 100_000;
+// OWASP 2023 recommendation: 600,000 iterations for PBKDF2-HMAC-SHA256
+// Existing stored credentials use their own `iterations` field for verification,
+// so increasing this value here only affects newly created credentials — no migration needed.
+const PBKDF2_ITERATIONS = 600_000;
 const KEY_BITS = 256;
 
 // ── ابزارهای داخلی ──────────────────────────────────────
