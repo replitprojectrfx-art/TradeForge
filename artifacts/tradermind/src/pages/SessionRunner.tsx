@@ -170,7 +170,18 @@ export default function SessionRunner() {
   setViewMode("finalDecision");
 };
   };
+const handleBack = async () => {
+  if (currentPhaseIndex === 0) return;
 
+  const newIndex = currentPhaseIndex - 1;
+
+  setCurrentPhaseIndex(newIndex);
+  setViewMode("runner");
+
+  await analysisService.updateSession(id!, {
+    currentPhaseId: phases[newIndex].id,
+  });
+};
   const handleNext = async () => {
     if (currentPhaseIndex < phases.length - 1) {
       setViewMode('phaseSummary');
