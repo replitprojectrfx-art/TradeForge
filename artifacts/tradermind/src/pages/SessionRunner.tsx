@@ -181,7 +181,6 @@ const handleBack = async () => {
   await analysisService.updateSession(id!, {
     currentPhaseId: phases[newIndex].id,
   });
-};
  const handleNext = async () => {
   if (!isPhaseComplete) {
     toast.error("ابتدا تمام موارد اجباری این فاز را تکمیل کنید.");
