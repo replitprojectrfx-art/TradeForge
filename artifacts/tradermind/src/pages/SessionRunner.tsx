@@ -145,12 +145,30 @@ export default function SessionRunner() {
   const overallProgress = phases.length === 0 ? 0
     : ((currentPhaseIndex + (isPhaseComplete ? 1 : 0)) / phases.length) * 100;
 
-  const handleBack = async () => {
-    if (currentPhaseIndex === 0) return;
-    const newIdx = currentPhaseIndex - 1;
-    setCurrentPhaseIndex(newIdx);
-    setViewMode('runner');
-    await analysisService.updateSession(id!, { currentPhaseId: phases[newIdx].id });
+  const handleNext = async () => {
+  // اگر فاز کامل نشده اجازه ادامه نده
+  if (!isPhaseComplete) {
+    toast.error("ابتدا تمام موارد اجباری این فاز را تکمیل کنید.");
+    return;
+  }
+
+  // اگر فاز آخر نیست، مستقیم برو به فاز بعد
+  if (currentPhaseIndex < phases.length - 1) {
+    const newIndex = currentPhaseIndex + 1;
+
+    setCurrentPhaseIndex(newIndex);
+    setViewMode("runner");
+
+    await analysisService.updateSession(id!, {
+      currentPhaseId: phases[newIndex].id,
+    });
+
+    return;
+  }
+
+  // اگر آخرین فاز است
+  setViewMode("finalDecision");
+};
   };
 
   const handleNext = async () => {
