@@ -182,14 +182,18 @@ const handleBack = async () => {
     currentPhaseId: phases[newIndex].id,
   });
 };
-  const handleNext = async () => {
-    if (currentPhaseIndex < phases.length - 1) {
-      setViewMode('phaseSummary');
-    } else {
-      setViewMode('finalDecision');
-    }
-  };
+ const handleNext = async () => {
+  if (!isPhaseComplete) {
+    toast.error("ابتدا تمام موارد اجباری این فاز را تکمیل کنید.");
+    return;
+  }
 
+  if (currentPhaseIndex < phases.length - 1) {
+    setViewMode("phaseSummary");
+  } else {
+    setViewMode("finalDecision");
+  }
+};
   const handleConfirmNextPhase = async () => {
     const newIdx = currentPhaseIndex + 1;
     setCurrentPhaseIndex(newIdx);
