@@ -38,8 +38,6 @@ export default function SessionRunner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageStepId, setImageStepId] = useState<string | null>(null);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
-  // ردیابی تعامل واقعی کاربر — auto-advance فقط بعد از پاسخ‌دهی فعال
-  const hasInteractedRef = useRef(false);
 
   useEffect(() => { if (id) loadData(); }, [id]);
   useEffect(() => { db.trades.toArray().then(setAllTrades); }, []);
@@ -75,7 +73,6 @@ export default function SessionRunner() {
   };
 
   const handleUpdateResult = (stepId: string, value: any) => {
-    hasInteractedRef.current = true;
     const newResults = { ...results, [stepId]: { value, answeredAt: Date.now() } };
     setResults(newResults);
     saveResults(newResults);
@@ -151,30 +148,11 @@ export default function SessionRunner() {
   const handleBack = async () => {
     if (currentPhaseIndex === 0) return;
     const newIdx = currentPhaseIndex - 1;
-    // ریست تعامل — کاربر باید دوباره در فاز قبلی چیزی پاسخ دهد تا auto-advance فعال شود
-    hasInteractedRef.current = false;
     setCurrentPhaseIndex(newIdx);
     setViewMode('runner');
     await analysisService.updateSession(id!, { currentPhaseId: phases[newIdx].id });
   };
 
-  // رفتن خودکار به مرحله بعد فقط پس از تعامل فعال کاربر با این فاز
-  // جلوگیری از: loop بین فازهای all-optional، پرش خودکار هنگام بارگذاری
-  useEffect(() => {
-    if (!currentPhase) return;
-    if (!isPhaseComplete) return;
-    if (!hasInteractedRef.current) return;
-
-    const timer = setTimeout(() => {
-      if (currentPhaseIndex < phases.length - 1) {
-        setViewMode('phaseSummary');
-      } else {
-        setViewMode('finalDecision');
-      }
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [isPhaseComplete, currentPhaseIndex, currentPhase, phases.length]);
   const handleNext = async () => {
     if (currentPhaseIndex < phases.length - 1) {
       setViewMode('phaseSummary');
@@ -185,8 +163,6 @@ export default function SessionRunner() {
 
   const handleConfirmNextPhase = async () => {
     const newIdx = currentPhaseIndex + 1;
-    // ریست تعامل — تا در فاز جدید auto-advance بدون تعامل کاربر فعال نشود
-    hasInteractedRef.current = false;
     setCurrentPhaseIndex(newIdx);
     setViewMode('runner');
     await analysisService.updateSession(id!, { currentPhaseId: phases[newIdx].id });
@@ -470,4 +446,323 @@ export default function SessionRunner() {
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={handle
+        onChange={handleImageUpload}
+      />
+
+      {/* هدر */}
+      <div className="flex items-center justify-between border-b pb-4 shrink-0 mb-4 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link href="/analysis">
+            <Button variant="ghost" size="icon" className="shrink-0">
+              <ArrowRight className="w-5 h-5" />
+            </Button>
+          </Link>
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-primary uppercase tracking-wide truncate">
+              {strategy.name}
+            </div>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight truncate">{currentPhase.name}</h1>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <Button variant="ghost" size="sm" className="text-muted-foreground gap-1.5 h-8 px-2 sm:px-3"
+            onClick={handlePause}>
+            <Pause className="w-4 h-4" />
+            <span className="hidden sm:inline">توقف</span>
+          </Button>
+          <Button variant="ghost" size="sm" className="text-rose-500 hover:text-rose-500 hover:bg-rose-500/10 gap-1.5 h-8 px-2 sm:px-3"
+            onClick={handleAbandon}>
+            <X className="w-4 h-4" />
+            <span className="hidden sm:inline">رها کردن</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* گام‌نمای فازها */}
+      <div className="flex items-center gap-1.5 mb-5 shrink-0 overflow-x-auto pb-1">
+        {phases.map((p, idx) => {
+          const done = idx < currentPhaseIndex;
+          const active = idx === currentPhaseIndex;
+          return (
+            <div key={p.id} className="flex items-center gap-1 shrink-0">
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors
+                ${done ? 'bg-emerald-500/15 text-emerald-500'
+                : active ? 'bg-primary/15 text-primary'
+                : 'bg-muted/50 text-muted-foreground'}`}>
+                {done
+                  ? <Check className="w-3 h-3" />
+                  : active
+                    ? <span className="w-3 h-3 rounded-full bg-primary inline-block" />
+                    : <span className="w-3 h-3 rounded-full border border-muted-foreground/40 inline-block" />}
+                {p.name}
+              </div>
+              {idx < phases.length - 1 && (
+                <ChevronLeft className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <Progress value={overallProgress} className="h-1 mb-6 shrink-0" />
+
+      {/* کارت‌های گام‌ها */}
+      <div className="flex-1 overflow-y-auto min-h-0 pb-28">
+        {currentPhase.description && (
+          <p className="text-muted-foreground mb-6 text-sm leading-relaxed">{currentPhase.description}</p>
+        )}
+        <div className="space-y-4">
+          {currentPhaseSteps.map(step => {
+            const res = results[step.id]?.value;
+            const answered = res !== null && res !== undefined && res !== '' && res !== false
+              && !(Array.isArray(res) && res.length === 0);
+            return (
+              <Card key={step.id} className={`transition-all duration-200 ${answered ? 'border-primary/40 bg-primary/5' : ''}`}>
+                <CardContent className="p-4 sm:p-5">
+                  <div className="mb-3 flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-base font-semibold flex items-center gap-2 flex-wrap">
+                        <span>{step.name}</span>
+                        {step.required && <span className="text-rose-500 text-sm">*</span>}
+                        {answered && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
+                      </Label>
+                      {step.hint && <p className="text-sm text-muted-foreground mt-1">{step.hint}</p>}
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+
+                    {/* CHECKBOX */}
+                    {step.type === 'checkbox' && (
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          id={`step-${step.id}`}
+                          checked={!!res}
+                          onCheckedChange={c => handleUpdateResult(step.id, c)}
+                          className="w-6 h-6 rounded-md"
+                        />
+                        <Label htmlFor={`step-${step.id}`} className="text-base cursor-pointer">
+                          علامت‌گذاری به‌عنوان تکمیل شده
+                        </Label>
+                      </div>
+                    )}
+
+                    {/* TEXT */}
+                    {step.type === 'text' && (
+                      <Input
+                        value={res || ''}
+                        onChange={e => handleUpdateResult(step.id, e.target.value)}
+                        placeholder="پاسخ خود را بنویسید..."
+                      />
+                    )}
+
+                    {/* TEXTAREA */}
+                    {step.type === 'textarea' && (
+                      <Textarea
+                        value={res || ''}
+                        onChange={e => handleUpdateResult(step.id, e.target.value)}
+                        placeholder="یادداشت تفصیلی..."
+                        className="min-h-[90px]"
+                      />
+                    )}
+
+                    {/* NUMBER */}
+                    {step.type === 'number' && (
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={res || ''}
+                        onChange={e => handleUpdateResult(step.id, e.target.value)}
+                        placeholder="0.00"
+                        className="max-w-[200px]"
+                      />
+                    )}
+
+                    {/* RATING */}
+                    {step.type === 'rating' && (
+                      <div className="flex gap-2 flex-wrap">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <Button
+                            key={n}
+                            variant={res === n ? 'default' : 'outline'}
+                            className="w-11 h-11"
+                            onClick={() => handleUpdateResult(step.id, n)}
+                          >
+                            {n}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* SINGLE CHOICE */}
+                    {step.type === 'select' && (
+                      <RadioGroup
+                        value={res || ''}
+                        onValueChange={v => handleUpdateResult(step.id, v)}
+                        className="flex flex-col gap-2"
+                      >
+                        {JSON.parse(step.options || '[]').map((opt: string) => (
+                          <div key={opt} className="flex items-center gap-2">
+                            <RadioGroupItem value={opt} id={`opt-${step.id}-${opt}`} />
+                            <Label htmlFor={`opt-${step.id}-${opt}`} className="cursor-pointer">{opt}</Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    )}
+
+                    {/* MULTI-SELECT */}
+                    {step.type === 'multi-select' && (
+                      <div className="flex flex-col gap-2">
+                        {JSON.parse(step.options || '[]').map((opt: string) => {
+                          const selected: string[] = res || [];
+                          return (
+                            <div key={opt} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`mopt-${step.id}-${opt}`}
+                                checked={selected.includes(opt)}
+                                onCheckedChange={() => handleMultiSelectToggle(step.id, opt)}
+                              />
+                              <Label htmlFor={`mopt-${step.id}-${opt}`} className="cursor-pointer">{opt}</Label>
+                            </div>
+                          );
+                        })}
+                        {(res as string[] || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {(res as string[]).map(o => (
+                              <Badge key={o} variant="secondary" className="text-xs">{o}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* DATE */}
+                    {step.type === 'date' && (
+                      <Input
+                        type="datetime-local"
+                        value={res || ''}
+                        onChange={e => handleUpdateResult(step.id, e.target.value)}
+                        className="max-w-[260px]"
+                      />
+                    )}
+
+                    {/* IMAGE / SCREENSHOT — Prompt 15 §14 */}
+                    {step.type === 'image' && (
+                      <div className="space-y-3">
+                        {res ? (
+                          <>
+                            <div className="relative inline-block">
+                              <img
+                                src={res}
+                                alt="اسکرین‌شات"
+                                className="max-h-48 rounded-lg border object-contain"
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-1 right-1 h-7 w-7 bg-background/80 hover:bg-background"
+                                onClick={() => handleUpdateResult(step.id, null)}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                            {/* Visual similarity — compare with historical setups */}
+                            {(() => {
+                              const contextText = [
+                                step.name,
+                                step.hint ?? '',
+                                session?.notes ?? '',
+                              ].filter(Boolean).join(' ');
+                              const mockTrade = makeAnalysisTrade(contextText);
+                              const now = Date.now();
+                              const mockScreenshot: TradeScreenshot = {
+                                id: `runner-${step.id}`,
+                                label: step.name,
+                                dataUrl: res as string,
+                                type: 'analysis',
+                                linkedTo: null,
+                                timeframe: null,
+                                lifecyclePosition: 'before-entry',
+                                width: null,
+                                height: null,
+                                fileSize: null,
+                                quality: null,
+                                extractedFeatures: extractInitialFeatures(mockTrade, contextText),
+                                userAddedFeatures: [],
+                                fibonacci: null,
+                                analysisNotes: null,
+                                annotations: [],
+                                createdAt: now,
+                              };
+                              const matches = findSimilarScreenshots(
+                                mockScreenshot,
+                                allTrades,
+                                { limit: 3, minScore: 25 },
+                              );
+                              if (matches.length === 0) return null;
+                              return (
+                                <div className="border border-white/10 rounded-lg p-3 bg-white/2 space-y-2">
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                    <Search className="w-3 h-3 shrink-0" />
+                                    ستاپ‌های بصری مشابه در تاریخچه معاملات شما:
+                                  </p>
+                                  <VisualSimilarityPanel matches={matches} />
+                                </div>
+                              );
+                            })()}
+                          </>
+                        ) : (
+                          <div className="flex gap-2 flex-wrap">
+                            <Button
+                              variant="outline"
+                              className="gap-2 border-dashed"
+                              onClick={() => handleImagePick(step.id)}
+                            >
+                              <Camera className="w-4 h-4" /> آپلود اسکرین‌شات
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* نوار اقدامات پایین */}
+      <div className="fixed bottom-0 right-0 md:left-64 left-0 p-3 sm:p-4 bg-background/95 backdrop-blur border-t z-10 flex justify-between items-center gap-4"
+        style={{ paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPhaseIndex === 0}
+            onClick={handleBack}
+            className="gap-1.5"
+          >
+            <ArrowRight className="w-4 h-4" />
+            <span className="hidden sm:inline">قبلی</span>
+          </Button>
+          <div className="text-xs text-muted-foreground">
+            فاز {currentPhaseIndex + 1} از {phases.length} · {completedStepsCount}/{currentPhaseSteps.length} گام
+          </div>
+        </div>
+        <Button
+          size="lg"
+          onClick={handleNext}
+          disabled={!isPhaseComplete}
+          className="gap-2 px-4 sm:px-6"
+        >
+          {currentPhaseIndex === phases.length - 1 ? (
+            <><Check className="w-4 h-4" /> تکمیل تحلیل</>
+          ) : (
+            <>فاز بعدی <ChevronLeft className="w-4 h-4" /></>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+}
